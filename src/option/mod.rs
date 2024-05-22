@@ -1,96 +1,14 @@
-pub mod greeks;
+mod contract;
+mod greeks;
 pub mod test;
 
-use crate::{decimals::DollarUSD, stock::Stock};
-use chrono::{DateTime, Utc};
-use core::fmt;
-use rust_decimal::{Decimal, MathematicalOps};
-use std::{fmt::Display, str::FromStr};
-
-use self::greeks::Greeks;
-
+use crate::decimals::DollarUSD;
 pub type Strike = DollarUSD;
+pub use contract::Contract;
+pub use greeks::Greeks;
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Copy)]
 pub enum OptionType {
     Call,
     Put,
-}
-
-pub struct OptionCandidate {
-    underlying: Box<Stock>,
-    strike: Strike,
-    expiration: DateTime<Utc>,
-    option_type: OptionType,
-}
-
-impl OptionCandidate {
-    pub fn new(
-        underlying: Box<Stock>,
-        strike: Strike,
-        expiration: DateTime<Utc>,
-        option_type: OptionType,
-    ) -> OptionCandidate {
-        OptionCandidate {
-            underlying,
-            strike,
-            expiration,
-            option_type,
-        }
-    }
-
-    pub fn get_tte(&self) -> Decimal {
-        let mte = self
-            .expiration
-            .signed_duration_since(Utc::now())
-            .num_minutes();
-
-        return Decimal::from(mte)
-            * Decimal::from_f64_retain(1.9013E-6)
-                .unwrap()
-                .round_sf(4)
-                .unwrap();
-    }
-
-    pub fn get_all_greeks(&self) -> Greeks {
-        let s = self.underlying.get_price().get_decimal();
-        let k = self.strike.get_decimal();
-        let t = self.get_tte();
-        let r = Decimal::from_str("0.05").unwrap();
-        let v = self.underlying.get_hv();
-        let d = self.underlying.get_dividend_yield();
-        println!("s: {}, k: {}, t: {}, r: {}, v: {}, d: {}", s, k, t, r, v, d);
-
-        let greeks = greeks::get_all_greeks(self.option_type, s, k, t, r, v, d);
-        return greeks;
-    }
-
-    pub fn get_iv() {
-        todo!();
-    }
-
-    pub fn get_val(&self) -> DollarUSD {
-        let s = self.underlying.get_price().get_decimal();
-        let k = self.strike.get_decimal();
-        let t = self.get_tte();
-        let r = Decimal::from_str("0.05").unwrap();
-        let v = self.underlying.get_hv();
-        let d1: Decimal =
-            ((s / k).ln() + (r + (v * v) / Decimal::from(2)) * t) / (v * t.sqrt().unwrap());
-        let d2 = d1 - v * t.sqrt().unwrap();
-        let nd1 = d1.norm_cdf();
-        let nd2 = d2.norm_cdf();
-
-        return DollarUSD::new(s * nd1 - k * Decimal::exp(&(r * -t)) * nd2);
-    }
-}
-
-impl Display for OptionCandidate {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "OptionCandidate: {:?} {:?} {:?} {:?}",
-            self.underlying, self.strike, self.expiration, self.option_type
-        )
-    }
 }

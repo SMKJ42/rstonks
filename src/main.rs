@@ -2,10 +2,15 @@ mod decimals;
 mod option;
 mod stock;
 
+use std::str::FromStr;
+
 use chrono::Utc;
 use decimals::DollarUSD;
-use option::{OptionCandidate, OptionType};
+use option::OptionType;
+use rust_decimal::Decimal;
 use stock::Stock;
+
+use crate::option::Contract;
 
 fn main() {
     let now = Utc::now();
@@ -30,13 +35,13 @@ fn main() {
     ]);
 
     let five_days_from_now = now.checked_add_signed(chrono::Duration::days(122)).unwrap();
-    let option = OptionCandidate::new(
+    let option = Contract::new(
         Box::new(ticker),
         DollarUSD::parse("$805.0"),
         five_days_from_now,
         OptionType::Call,
     );
 
-    let greeks = option.get_all_greeks();
+    let greeks = option.get_all_greeks(Decimal::from_str("0.5").unwrap());
     println!("{}", greeks);
 }

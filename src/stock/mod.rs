@@ -1,16 +1,13 @@
+mod price_data;
+mod test;
+
 use self::price_data::{ClosePriceData, PriceData};
-use crate::{
-    decimals::DollarUSD,
-    option::{greeks::Greeks, OptionCandidate, OptionType, Strike},
-};
+use crate::{decimals::DollarUSD, option};
 use chrono::{DateTime, Utc};
 use core::fmt;
 use rust_decimal::Decimal;
 use std::fmt::Display;
-
-pub mod price_data;
-mod test;
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Stock {
     dividend_yield: DollarUSD,
     dy_close_price_data: ClosePriceData,
@@ -73,13 +70,14 @@ impl Stock {
 
     pub fn get_greeks_for_option(
         self,
-        strike: Strike,
+        strike: option::Strike,
         expiration: DateTime<Utc>,
-        option_type: OptionType,
-    ) -> Greeks {
-        let option = OptionCandidate::new(Box::new(self), strike, expiration, option_type);
+        option_type: option::OptionType,
+        rf_rate: Decimal,
+    ) -> option::Greeks {
+        let option = option::Contract::new(Box::new(self), strike, expiration, option_type);
 
-        return option.get_all_greeks();
+        return option.get_all_greeks(rf_rate);
     }
 }
 

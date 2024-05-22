@@ -13,11 +13,11 @@ impl Greeks {
     pub fn new() -> Greeks {
         Greeks {
             greeks: [
-                Greek::Delta(Decimal::from(0)),
-                Greek::Gamma(Decimal::from(0)),
-                Greek::Theta(Decimal::from(0)),
-                Greek::Vega(Decimal::from(0)),
-                Greek::Rho(Decimal::from(0)),
+                Greek::Delta(Decimal::ZERO),
+                Greek::Gamma(Decimal::ZERO),
+                Greek::Theta(Decimal::ZERO),
+                Greek::Vega(Decimal::ZERO),
+                Greek::Rho(Decimal::ZERO),
             ],
         }
     }
@@ -112,8 +112,7 @@ pub fn get_all_greeks(
     v: Decimal,
     d: DollarUSD,
 ) -> Greeks {
-    let d1: Decimal =
-        ((s / k).ln() + (r + (v * v) / Decimal::from(2)) * t) / (v * t.sqrt().unwrap());
+    let d1: Decimal = ((s / k).ln() + (r + (v * v) / Decimal::TWO) * t) / (v * t.sqrt().unwrap());
     let d2 = d1 - v * t.sqrt().unwrap();
 
     let nd1 = d1.norm_cdf();
@@ -133,30 +132,30 @@ pub fn get_all_greeks(
             delta = rel_d * nd1;
             rho = k * t * rel_r * nd2;
             let rho_ish = r * k * rel_r * nd2;
-            theta = -(rel_d * s * v * npd1) / (Decimal::from(2) * t.sqrt().unwrap()) - rho_ish
+            theta = -(rel_d * s * v * npd1) / (Decimal::TWO * t.sqrt().unwrap()) - rho_ish
                 + d.get_decimal() * rel_d * nd1;
         }
         OptionType::Put => {
             delta = rel_d * (nd1 - Decimal::from(1));
             rho = -k * t * rel_r * (-d2).norm_cdf();
             let rho_ish = r * k * rel_r * (-d2).norm_cdf();
-            theta = -(rel_d * s * v * npd1) / (Decimal::from(2) * t.sqrt().unwrap()) + rho_ish
+            theta = -(rel_d * s * v * npd1) / (Decimal::TWO * t.sqrt().unwrap()) + rho_ish
                 - d.get_decimal() * rel_d * (-d1.norm_cdf());
         }
-        _ => panic!("Invalid option type"),
     }
 
-    theta = theta / Decimal::from(365);
-    rho = rho / Decimal::from(100);
-
     let gamma = (rel_d * npd1) / (s * v * t.sqrt().unwrap());
-    let vega = s * t.sqrt().unwrap() * npd1 * rel_d;
+    let mut vega = s * t.sqrt().unwrap() * npd1 * rel_d;
+
+    theta = theta / Decimal::from(365);
+    rho = rho / Decimal::ONE_HUNDRED;
+    vega = vega / Decimal::ONE_HUNDRED;
 
     return Greeks::from([
         Greek::Delta(delta),
         Greek::Gamma(gamma),
         Greek::Theta(theta),
-        Greek::Vega(vega / Decimal::from(100)),
+        Greek::Vega(vega),
         Greek::Rho(rho),
     ]);
 }
