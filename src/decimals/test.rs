@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
 
-    use decimal_rs::Decimal;
+    use rust_decimal::Decimal;
 
     use crate::decimals::DollarUSD;
 

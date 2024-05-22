@@ -1,12 +1,10 @@
 use super::OptionType;
+use crate::decimals::DollarUSD;
 use core::fmt;
-use decimal_rs::Decimal;
-use statrs::distribution::{Continuous, ContinuousCDF, Normal};
-use std::{
-    fmt::{Debug, Display},
-    str::FromStr,
-};
+use rust_decimal::{Decimal, MathematicalOps};
+use std::fmt::{Debug, Display};
 
+#[derive(PartialEq, Clone)]
 pub struct Greeks {
     pub greeks: [Greek; 5],
 }
@@ -25,6 +23,15 @@ impl Greeks {
     }
 }
 
+impl IntoIterator for Greeks {
+    type Item = Greek;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.greeks.to_vec().into_iter()
+    }
+}
+
 impl From<[Greek; 5]> for Greeks {
     fn from(greeks: [Greek; 5]) -> Self {
         Greeks { greeks }
@@ -35,20 +42,27 @@ impl Display for Greeks {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Delta: {}\nGamma: {}\nTheta: {}\nVega: {}\nRho: {}",
-            self.greeks[0], self.greeks[1], self.greeks[2], self.greeks[3], self.greeks[4]
+            "Delta      Gamma      Theta      Vega       Rho       \n"
+        )?;
+        write!(
+            f,
+            "{:<10.4} {:<10.4} {:<10.4} {:<10.4} {:<10.4}",
+            self.greeks[0].get_value(),
+            self.greeks[1].get_value(),
+            self.greeks[2].get_value(),
+            self.greeks[3].get_value(),
+            self.greeks[4].get_value(),
         )
     }
 }
 
-impl Iterator for Greeks {
-    type Item = Greek;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        for greek in self.greeks.iter() {
-            return Some(*greek);
-        }
-        return None;
+impl Debug for Greeks {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Delta: {:?}\nGamma: {:?}\nTheta: {:?}\nVega: {:?}\nRho: {:?}",
+            self.greeks[0], self.greeks[1], self.greeks[2], self.greeks[3], self.greeks[4]
+        )
     }
 }
 
@@ -61,15 +75,25 @@ pub enum Greek {
     Rho(Decimal),
 }
 
-impl fmt::Display for Greek {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Greek {
+    fn get_value(&self) -> Decimal {
         match self {
-            Greek::Delta(e) => write!(f, "{}", e),
-            Greek::Gamma(e) => write!(f, "{}", e),
-            Greek::Theta(e) => write!(f, "{}", e),
-            Greek::Vega(e) => write!(f, "{}", e),
-            Greek::Rho(e) => write!(f, "{}", e),
+            Greek::Delta(e) => *e,
+            Greek::Gamma(e) => *e,
+            Greek::Theta(e) => *e,
+            Greek::Vega(e) => *e,
+            Greek::Rho(e) => *e,
         }
+    }
+    fn get_name(&self) -> String {
+        match self {
+            Greek::Delta(_) => "Delta",
+            Greek::Gamma(_) => "Gamma",
+            Greek::Theta(_) => "Theta",
+            Greek::Vega(_) => "Vega",
+            Greek::Rho(_) => "Rho",
+        }
+        .to_string()
     }
 }
 
@@ -80,49 +104,59 @@ impl fmt::Display for Greek {
 // v: Volatility of the underlying asset
 
 pub fn get_all_greeks(
-    c_type: OptionType,
+    o_type: OptionType,
     s: Decimal,
     k: Decimal,
     t: Decimal,
     r: Decimal,
     v: Decimal,
+    d: DollarUSD,
 ) -> Greeks {
-    let d1: Decimal = ((s / k).ln().unwrap() + (r + Decimal::from_str("0.5").unwrap() * v * v) * t)
-        / (v * t.sqrt().unwrap());
+    let d1: Decimal =
+        ((s / k).ln() + (r + (v * v) / Decimal::from(2)) * t) / (v * t.sqrt().unwrap());
     let d2 = d1 - v * t.sqrt().unwrap();
 
-    let normal = Normal::new(0.0, 1.0).unwrap();
-    let nd1 = normal.cdf(d1.into());
-    let nd2 = normal.cdf(d2.into());
-    let npd1 = normal.pdf(d1.into());
+    let nd1 = d1.norm_cdf();
+    // !!! if pdf overflow happens, its here
+    let npd1 = d1.norm_pdf();
+
+    let rel_d = Decimal::exp(&(-(d.get_decimal() / s) * t));
+    let rel_r = Decimal::exp(&(-r * t));
 
     let delta: Decimal;
-    let theta: Decimal;
-    let rho: Decimal;
+    let mut theta: Decimal;
+    let mut rho: Decimal;
 
-    if c_type == OptionType::Call {
-        delta = Decimal::from(0) + nd1;
-        theta = -(s * v * npd1) / (2.0 * t.sqrt().unwrap())
-            - r * k * Decimal::exp(&(-r * t)).unwrap() * 3.125;
-        rho = k * t * Decimal::exp(&(-r * t)).unwrap() * nd2;
-    } else if c_type == OptionType::Put {
-        delta = Decimal::from(0) - nd1;
-        theta = -(s * v * npd1) / (2.0 * t.sqrt().unwrap())
-            + r * k * Decimal::exp(&(-r * t)).unwrap() * 3.125;
-        rho = -k * t * Decimal::exp(&(-r * t)).unwrap() * nd2;
-    } else {
-        panic!("Invalid option type");
+    match o_type {
+        OptionType::Call => {
+            let nd2 = d2.norm_cdf();
+            delta = rel_d * nd1;
+            rho = k * t * rel_r * nd2;
+            let rho_ish = r * k * rel_r * nd2;
+            theta = -(rel_d * s * v * npd1) / (Decimal::from(2) * t.sqrt().unwrap()) - rho_ish
+                + d.get_decimal() * rel_d * nd1;
+        }
+        OptionType::Put => {
+            delta = rel_d * (nd1 - Decimal::from(1));
+            rho = -k * t * rel_r * (-d2).norm_cdf();
+            let rho_ish = r * k * rel_r * (-d2).norm_cdf();
+            theta = -(rel_d * s * v * npd1) / (Decimal::from(2) * t.sqrt().unwrap()) + rho_ish
+                - d.get_decimal() * rel_d * (-d1.norm_cdf());
+        }
+        _ => panic!("Invalid option type"),
     }
 
-    let gamma = npd1 / (s * v * t.sqrt().unwrap());
+    theta = theta / Decimal::from(365);
+    rho = rho / Decimal::from(100);
 
-    let vega = s * t.sqrt().unwrap() * npd1;
+    let gamma = (rel_d * npd1) / (s * v * t.sqrt().unwrap());
+    let vega = s * t.sqrt().unwrap() * npd1 * rel_d;
 
     return Greeks::from([
         Greek::Delta(delta),
         Greek::Gamma(gamma),
         Greek::Theta(theta),
-        Greek::Vega(vega),
+        Greek::Vega(vega / Decimal::from(100)),
         Greek::Rho(rho),
     ]);
 }

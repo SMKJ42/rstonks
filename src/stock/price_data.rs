@@ -1,33 +1,32 @@
 use crate::decimals::DollarUSD;
-use decimal_rs::Decimal;
+use rust_decimal::{Decimal, MathematicalOps};
 
 pub type PriceData = Vec<Option<(DollarUSD, DollarUSD, DollarUSD, DollarUSD)>>;
 pub type ClosePriceData = Vec<Option<DollarUSD>>;
 
 pub fn get_historical_volatility(price_data: Vec<DollarUSD>) -> Decimal {
-    let mut sum: DollarUSD = DollarUSD::new(Decimal::from(0));
-    let mut count = 0;
+    let mut log_sum = Decimal::from(0);
     let mut prev_price = price_data[0];
     let mut log_returns: Vec<Decimal> = Vec::new();
+    let count = &price_data.len() - 1;
 
     for i in 1..price_data.len() {
-        let log_return = DollarUSD::ln(price_data[i] / prev_price);
+        let log_return = Decimal::ln(&(price_data[i].get_decimal() / prev_price.get_decimal()));
         prev_price = price_data[i];
-        log_returns.push(log_return.get_decimal());
-        sum += log_return;
-        count += 1;
+        log_returns.push(log_return);
+        log_sum += log_return;
     }
 
-    let log_mean = sum.get_decimal() / count;
+    let log_mean = log_sum / Decimal::from(count);
 
-    let mut sum: Decimal = Decimal::from(0);
+    let mut pow_sum: Decimal = Decimal::from(0);
 
-    for log in log_returns.clone() {
+    for log in log_returns {
         let curr: Decimal = log - log_mean;
-        sum += curr.checked_pow(&Decimal::from(2)).unwrap();
+        pow_sum += curr.powu(2);
     }
 
-    let standard_deviation = (sum / (log_returns.len() - 1)).sqrt().unwrap();
+    let standard_deviation = (pow_sum / Decimal::from(count - 1)).sqrt().unwrap();
 
-    return standard_deviation * count;
+    return standard_deviation * Decimal::from(count + 1).sqrt().unwrap();
 }

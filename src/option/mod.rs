@@ -4,7 +4,7 @@ pub mod test;
 use crate::{decimals::DollarUSD, stock::Stock};
 use chrono::{DateTime, Utc};
 use core::fmt;
-use decimal_rs::Decimal;
+use rust_decimal::{Decimal, MathematicalOps};
 use std::{fmt::Display, str::FromStr};
 
 use self::greeks::Greeks;
@@ -45,18 +45,43 @@ impl OptionCandidate {
             .signed_duration_since(Utc::now())
             .num_minutes();
 
-        return Decimal::from(mte) * 1.9013E-6;
+        return Decimal::from(mte)
+            * Decimal::from_f64_retain(1.9013E-6)
+                .unwrap()
+                .round_sf(4)
+                .unwrap();
     }
 
     pub fn get_all_greeks(&self) -> Greeks {
         let s = self.underlying.get_price().get_decimal();
         let k = self.strike.get_decimal();
         let t = self.get_tte();
-        let r = Decimal::from_str("0.02").unwrap();
+        let r = Decimal::from_str("0.05").unwrap();
         let v = self.underlying.get_hv();
-        // println!("s: {:?}, k: {:?}, t: {}, r: {}, v: {}", s, k, t, r, v);
-        let greeks = greeks::get_all_greeks(self.option_type, s, k, t, r, v);
+        let d = self.underlying.get_dividend_yield();
+        println!("s: {}, k: {}, t: {}, r: {}, v: {}, d: {}", s, k, t, r, v, d);
+
+        let greeks = greeks::get_all_greeks(self.option_type, s, k, t, r, v, d);
         return greeks;
+    }
+
+    pub fn get_iv() {
+        todo!();
+    }
+
+    pub fn get_val(&self) -> DollarUSD {
+        let s = self.underlying.get_price().get_decimal();
+        let k = self.strike.get_decimal();
+        let t = self.get_tte();
+        let r = Decimal::from_str("0.05").unwrap();
+        let v = self.underlying.get_hv();
+        let d1: Decimal =
+            ((s / k).ln() + (r + (v * v) / Decimal::from(2)) * t) / (v * t.sqrt().unwrap());
+        let d2 = d1 - v * t.sqrt().unwrap();
+        let nd1 = d1.norm_cdf();
+        let nd2 = d2.norm_cdf();
+
+        return DollarUSD::new(s * nd1 - k * Decimal::exp(&(r * -t)) * nd2);
     }
 }
 

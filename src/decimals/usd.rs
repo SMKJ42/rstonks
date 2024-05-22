@@ -1,11 +1,17 @@
-use decimal_rs::Decimal;
-use std::fmt::Debug;
+use rust_decimal::{Decimal, MathematicalOps};
+use std::fmt::Display;
 use std::ops::{Add, AddAssign, Div, Mul, Sub};
 use std::str::FromStr;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Debug)]
 pub struct DollarUSD {
     value: Decimal,
+}
+
+impl Display for DollarUSD {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "${}", self.get_dollars())
+    }
 }
 
 impl DollarUSD {
@@ -18,7 +24,7 @@ impl DollarUSD {
     }
 
     pub fn get_dollars(&self) -> Decimal {
-        return self.value.round(2);
+        return self.value.round_dp(2);
     }
 
     pub fn parse(s: &str) -> Self {
@@ -29,7 +35,7 @@ impl DollarUSD {
 
     pub fn ln(self) -> Self {
         Self {
-            value: self.value.ln().unwrap(),
+            value: self.value.ln(),
         }
     }
 

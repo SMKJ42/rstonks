@@ -5,15 +5,14 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use core::fmt;
-use decimal_rs::Decimal;
+use rust_decimal::Decimal;
 use std::fmt::Display;
 
 pub mod price_data;
 mod test;
-
 #[derive(Clone, Debug)]
 pub struct Stock {
-    dividend_yield: Option<f64>,
+    dividend_yield: DollarUSD,
     dy_close_price_data: ClosePriceData,
     price_data: PriceData,
     price: DollarUSD,
@@ -22,14 +21,21 @@ pub struct Stock {
 }
 
 impl Stock {
-    pub fn new() -> Stock {
+    pub fn new(
+        name: String,
+        ticker: String,
+        price: DollarUSD,
+        price_data: PriceData,
+        close_price_data: ClosePriceData,
+        dividend: DollarUSD,
+    ) -> Stock {
         Stock {
-            dividend_yield: None,
-            dy_close_price_data: ClosePriceData::new(),
-            price_data: PriceData::new(),
-            price: DollarUSD::new(Decimal::from(0)),
-            ticker: String::new(),
-            name: String::new(),
+            dividend_yield: dividend,
+            dy_close_price_data: close_price_data,
+            price_data,
+            price,
+            ticker,
+            name,
         }
     }
 
@@ -50,6 +56,10 @@ impl Stock {
 
     pub fn get_price(&self) -> DollarUSD {
         return self.price;
+    }
+
+    pub fn get_dividend_yield(&self) -> DollarUSD {
+        return self.dividend_yield;
     }
 
     pub fn update_price(&mut self, price: DollarUSD) {
@@ -77,7 +87,7 @@ impl Display for Stock {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Name: {}, Ticker: {}, Stock: {:?}",
+            "Name: {}, Ticker: {}, Price: {}",
             self.name, self.ticker, self.price
         )
     }
