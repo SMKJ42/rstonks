@@ -65,7 +65,7 @@ impl<'a> OptionContract<'a> {
         let t = self.get_tte();
         let s = self.underlying.get_price_as_decimal();
         let v = self.underlying.get_hv();
-        let d = self.underlying.get_dividend_yield().get_decimal();
+        let d = self.underlying.get_dividend_yield();
         let o_type = self.option_type;
 
         return BlackScholes::price_option(k, t, s, v, d, rf_rate, o_type);
@@ -88,7 +88,7 @@ impl<'a> OptionContract<'a> {
         let k = self.strike.get_decimal();
         let t = self.get_tte();
         let s = self.underlying.get_price_as_decimal();
-        let d = self.underlying.get_dividend_yield().get_decimal();
+        let d = self.underlying.get_dividend_yield();
         let o_type = self.option_type;
         return BlackScholes::price_option(k, t, s, v, d, rf_rate, o_type);
     }
@@ -101,7 +101,7 @@ impl<'a> OptionContract<'a> {
         let s = self.underlying.get_price_as_decimal();
         let k = self.strike.get_decimal();
         let t = self.get_tte();
-        let d = self.underlying.get_dividend_yield().get_decimal();
+        let d = self.underlying.get_dividend_yield();
         let o_type = self.option_type;
         return BlackScholes::greeks(s, k, t, v, d, rf_rate, o_type);
     }

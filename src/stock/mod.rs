@@ -10,12 +10,12 @@ use rust_decimal::Decimal;
 use std::fmt::Display;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Stock {
-    dividend_yield: DollarUSD,
-    dy_close_price_data: ClosePriceData,
-    price_data: PriceData,
-    price: DollarUSD,
-    ticker: String,
     name: String,
+    ticker: String,
+    price: DollarUSD,
+    price_data: PriceData,
+    dy_close_price_data: ClosePriceData,
+    dividend: DollarUSD,
 }
 
 impl Stock {
@@ -24,16 +24,16 @@ impl Stock {
         ticker: String,
         price: DollarUSD,
         price_data: PriceData,
-        close_price_data: ClosePriceData,
+        dy_close_price_data: ClosePriceData,
         dividend: DollarUSD,
     ) -> Stock {
         Stock {
-            dividend_yield: dividend,
-            dy_close_price_data: close_price_data,
-            price_data,
-            price,
-            ticker,
             name,
+            ticker,
+            price,
+            price_data,
+            dy_close_price_data,
+            dividend: dividend,
         }
     }
 
@@ -60,8 +60,12 @@ impl Stock {
         return self.price.get_decimal();
     }
 
-    pub fn get_dividend_yield(&self) -> DollarUSD {
-        return self.dividend_yield;
+    pub fn get_dividend(&self) -> DollarUSD {
+        return self.dividend;
+    }
+
+    pub fn get_dividend_yield(&self) -> Decimal {
+        return self.dividend.get_decimal() / self.price.get_decimal();
     }
 
     pub fn update_price(&mut self, price: DollarUSD) {

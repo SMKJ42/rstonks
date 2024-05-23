@@ -26,12 +26,16 @@ impl BlackScholes {
         rf_rate: Decimal,
         o_type: ContractType,
     ) -> BlackScholes {
-        let d1: Decimal =
-            ((s / k).ln() + (rf_rate + (v * v) / Decimal::TWO) * t) / (v * t.sqrt().unwrap());
+        println!(
+            "s: {}, k: {}, t: {}, v: {}, d: {}, rf_rate: {}",
+            s, k, t, v, d, rf_rate
+        );
+        let d1: Decimal = ((s / k).ln() + (rf_rate - d + (v * v) / Decimal::from(2)) * t)
+            / (v * t.sqrt().unwrap());
         let d2 = d1 - v * t.sqrt().unwrap();
 
         let nd1 = d1.norm_cdf();
-        // !!! if pdf overflow happens, its here
+        let nd2 = d2.norm_cdf();
         let npd1 = d1.norm_pdf();
 
         let rel_d = Decimal::exp(&(-(d / s) * t));
@@ -43,26 +47,27 @@ impl BlackScholes {
 
         match o_type {
             ContractType::Call => {
-                let nd2 = d2.norm_cdf();
                 delta = rel_d * nd1;
-                rho = k * t * rel_r * nd2;
+                rho = k * t * rel_r * d2;
                 let rho_ish = rf_rate * k * rel_r * nd2;
-                theta = -(rel_d * s * v * npd1) / (Decimal::TWO * t.sqrt().unwrap()) - rho_ish
-                    + d * rel_d * nd1;
+                theta = -(rel_d * s * v * npd1) / (Decimal::TWO * t.sqrt().unwrap())
+                    - d * s * rel_d * nd1
+                    + rho_ish;
             }
             ContractType::Put => {
-                delta = rel_d * (nd1 - Decimal::from(1));
-                rho = -k * t * rel_r * (-d2).norm_cdf();
-                let rho_ish = rf_rate * k * rel_r * (-d2).norm_cdf();
-                theta = -(rel_d * s * v * npd1) / (Decimal::TWO * t.sqrt().unwrap()) + rho_ish
-                    - d * rel_d * (-d1.norm_cdf());
+                delta = rel_d * (Decimal::ONE - nd1);
+                rho = -k * t * rel_r * (Decimal::ONE - d2);
+                let rho_ish = rf_rate * k * rel_r * (Decimal::ONE - nd2);
+                theta = -(rel_d * s * v * npd1) / (Decimal::TWO * t.sqrt().unwrap())
+                    + d * s * rel_d * (Decimal::ONE - nd1)
+                    - rho_ish;
             }
         }
 
         let gamma = (rel_d * npd1) / (s * v * t.sqrt().unwrap());
         let mut vega = s * t.sqrt().unwrap() * npd1 * rel_d;
 
-        theta = theta / Decimal::from(365);
+        theta = theta / Decimal::from(360);
         rho = rho / Decimal::ONE_HUNDRED;
         vega = vega / Decimal::ONE_HUNDRED;
 
@@ -93,22 +98,22 @@ impl BlackScholes {
         rf_rate: Decimal,
         o_type: ContractType,
     ) -> DollarUSD {
-        let d1: Decimal =
-            ((s / k).ln() + (rf_rate + (v * v) / Decimal::from(2)) * t) / (v * t.sqrt().unwrap());
+        let d1: Decimal = ((s / k).ln() + (rf_rate - d + (v * v) / Decimal::from(2)) * t)
+            / (v * t.sqrt().unwrap());
         let d2 = d1 - v * t.sqrt().unwrap();
         let nd1 = d1.norm_cdf();
         let nd2 = d2.norm_cdf();
 
         let rel_d = Decimal::exp(&(-(&d / s) * t));
-        // let rel_r = Decimal::exp(&(-r * t));
+        let rel_r = Decimal::exp(&(-rf_rate * t));
 
         match o_type {
             ContractType::Call => {
-                let val = s * nd1 - k * rel_d * nd2;
+                let val = s * nd1 * rel_d - k * rel_r * nd2;
                 return DollarUSD::new(val);
             }
             ContractType::Put => {
-                let val = k * rel_d * (Decimal::ONE - nd2) - s * (Decimal::ONE - nd1);
+                let val = k * rel_r * (Decimal::ONE - nd2) - s * (Decimal::ONE - nd1) * rel_d;
                 return DollarUSD::new(val);
             }
         }

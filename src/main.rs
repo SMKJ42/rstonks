@@ -41,12 +41,13 @@ fn main() {
         ContractType::Call,
     );
 
-    let rf_rate = Decimal::from_str("0.05").unwrap();
+    let rf_rate = Decimal::from_str("0.0443").unwrap();
+    let hv = ticker.get_hv();
     let iv = option.get_iv(rf_rate);
     let greeks = option.get_all_greeks(rf_rate, iv);
     let price_est = option.get_price_est(rf_rate, iv);
-    let price_with_hv = option.get_price_est(rf_rate, ticker.get_hv());
-    println!("hv {}", ticker.get_hv());
+    let price_with_hv = option.get_price_est(rf_rate, hv);
+    println!("hv {}", hv);
     println!("price with hv: {}", price_with_hv);
     println!("iv: {}", iv);
     println!("price with iv: {}", price_est);
