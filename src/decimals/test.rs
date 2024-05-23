@@ -8,7 +8,8 @@ mod tests {
     #[test]
     fn parse() {
         let a = DollarUSD::parse("$1.0");
-        assert_eq!(a.get_dollars(), Decimal::from(1));
+        let b = DollarUSD::new(Decimal::from(1));
+        assert_eq!(a.get_dollars(), b.get_dollars());
     }
 
     #[test]
@@ -30,8 +31,6 @@ mod tests {
         let a = DollarUSD::parse("$3.00");
         let b = DollarUSD::parse("$2.00");
         assert_eq!(a * b, DollarUSD::parse("$6.00"));
-
-        //TODO: more edge cases
     }
 
     #[test]
@@ -45,15 +44,19 @@ mod tests {
     fn division_round_down() {
         let a = DollarUSD::parse("$5.35");
         let b = DollarUSD::parse("$3.0");
-        assert_eq!((a / b).get_dollars(), "1.78".parse::<Decimal>().unwrap());
-        //TODO: more edge cases
+        assert_eq!(
+            (a / b).get_dollars(),
+            DollarUSD::new(Decimal::from_str_exact("1.78").unwrap())
+        );
     }
 
     #[test]
     fn division_round_up() {
         let a = DollarUSD::parse("$5.75");
         let b = DollarUSD::parse("$2.0");
-        assert_eq!((a / b).get_dollars(), "2.88".parse::<Decimal>().unwrap());
-        //TODO: more edge cases
+        assert_eq!(
+            (a / b).get_dollars(),
+            DollarUSD::new(Decimal::from_str_exact("2.88").unwrap())
+        );
     }
 }

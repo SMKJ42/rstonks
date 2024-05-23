@@ -10,7 +10,7 @@ pub struct DollarUSD {
 
 impl Display for DollarUSD {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "${}", self.get_dollars())
+        write!(f, "${}", self.value.round_dp(2))
     }
 }
 
@@ -23,9 +23,11 @@ impl DollarUSD {
         self.value
     }
 
-    pub fn get_dollars(&self) -> Decimal {
-        return self.value.round_dp(2);
+    pub fn get_dollars(&self) -> DollarUSD {
+        return DollarUSD::new(self.value.round_dp(2));
     }
+
+    //TODO: create function for getting DollarUSD as fractional cents (e.g. $1.255)
 
     pub fn parse(s: &str) -> Self {
         let value = s.replace("$", "");

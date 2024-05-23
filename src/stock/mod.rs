@@ -2,7 +2,8 @@ mod price_data;
 mod test;
 
 use self::price_data::{ClosePriceData, PriceData};
-use crate::{decimals::DollarUSD, option};
+use crate::decimals::DollarUSD;
+use crate::stock_option::{BlackScholes, ContractType, OptionContract, Strike};
 use chrono::{DateTime, Utc};
 use core::fmt;
 use rust_decimal::Decimal;
@@ -52,7 +53,11 @@ impl Stock {
     }
 
     pub fn get_price(&self) -> DollarUSD {
-        return self.price;
+        return self.price.get_dollars();
+    }
+
+    pub fn get_price_as_decimal(&self) -> Decimal {
+        return self.price.get_decimal();
     }
 
     pub fn get_dividend_yield(&self) -> DollarUSD {
@@ -68,16 +73,19 @@ impl Stock {
         todo!();
     }
 
-    pub fn get_greeks_for_option(
-        self,
-        strike: option::Strike,
+    pub fn create_option_contract<'a>(
+        &'a self,
+        strike: Strike,
+        price: DollarUSD,
         expiration: DateTime<Utc>,
-        option_type: option::OptionType,
-        rf_rate: Decimal,
-    ) -> option::Greeks {
-        let option = option::Contract::new(Box::new(self), strike, expiration, option_type);
+        option_type: ContractType,
+    ) -> OptionContract<'a> {
+        return OptionContract::new(&self, price, strike, expiration, option_type);
+    }
 
-        return option.get_all_greeks(rf_rate);
+    pub fn get_greeks_for_option(option: OptionContract, rf_rate: Decimal) -> BlackScholes {
+        let iv = option.get_iv(rf_rate);
+        return option.get_all_greeks(rf_rate, iv);
     }
 }
 
